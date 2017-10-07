@@ -1,8 +1,10 @@
 /**
   Implementar:
-  FCFS com prioridade sem preempção
-  SJB
-  Round-Robin com prioridade e envelhecimento
+  FCFS Simples [V]
+  Round-Robin [V]
+  FCFS com prioridade sem preempção [V]
+  SJB [V]
+  Round-Robin com prioridade e envelhecimento [V]
 **/
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,8 +79,8 @@ int init(){
       scanf("%d %d %d", &created_at, &duration, &static_priority);
       struct process* p = create_process(i, created_at, duration, static_priority);
       queue_append((queue_t**)&new_queue, (queue_t*)p);
-      printf("P%d. created_at %d duration %d executed_time %d\n",
-      (*p).id, (*p).created_at, (*p).duration, (*p).executed_time);
+      //printf("P%d. created_at %d duration %d executed_time %d\n",
+      //(*p).id, (*p).created_at, (*p).duration, (*p).executed_time);
   }
   return process_total;
 }
@@ -122,11 +124,72 @@ void print_body(int t, int n){
   printf("\n");
 }
 
+//politic = 0
 struct process *scheduler_fcfs(process **queue){
   return (process *)queue_remove((queue_t**)queue, (queue_t*)*queue);
 }
 
-void dispatcher(int has_quantum, int quantum, int n){
+//politic = 1
+struct process *scheduler_fcfs_priority(process **queue){
+  process *q = *queue;
+  process* first = *queue;
+  process* result = *queue;
+  if(q != NULL){
+    do{
+      if((*q).static_priority < (*result).static_priority){
+        result = q;
+        break;
+      }
+      else{
+        q = (*q).next;
+      }
+    }while(q != first);
+  }
+  //return result;
+  return (process *)queue_remove((queue_t**)queue, (queue_t*)result);
+}
+
+//politic = 2
+struct process *scheduler_sjf(process **queue){
+  process *q = *queue;
+  process* first = *queue;
+  process* result = *queue;
+  if(q != NULL){
+    do{
+      if((*q).duration < (*result).duration){
+        result = q;
+        break;
+      }
+      else{
+        q = (*q).next;
+      }
+    }while(q != first);
+  }
+  //return result;
+  return (process *)queue_remove((queue_t**)queue, (queue_t*)result);
+}
+
+//politc = 3
+struct process *scheduler_rr(process **queue){
+  process *q = *queue;
+  process* first = *queue;
+  process* result = *queue;
+  if(q != NULL){
+    do{
+      if(((*q).static_priority - (*q).dynamic_priority) < ((*result).static_priority - (*result).dynamic_priority)){
+        result = q;
+        break;
+      }
+      else{
+        q = (*q).next;
+      }
+    }while(q != first);
+  }
+  //return result;
+  return (process *)queue_remove((queue_t**)queue, (queue_t*)result);
+}
+
+void dispatcher(int has_quantum, int quantum, int has_aging, int n){
   while(current_time < T_MAX)
   {
     if(running_current != NULL){
@@ -136,11 +199,11 @@ void dispatcher(int has_quantum, int quantum, int n){
         queue_append((queue_t**)&completed_queue, (queue_t*)running_current);
         running_current = NULL;
       }
-      // else if(has_quantum && (*running_current).executed_quantum == quantum){
-      //   (*running_current).executed_quantum = 0;
-      //   queue_append((queue_t**)&ready_queue, (queue_t*)running_current);
-      //   running_current = NULL;
-      // }
+      else if(has_quantum && (*running_current).executed_quantum == quantum){
+         (*running_current).executed_quantum = 0;
+          queue_append((queue_t**)&ready_queue, (queue_t*)running_current);
+          running_current = NULL;
+       }
     }
 
     if(queue_size((queue_t*)completed_queue) < n)
@@ -163,7 +226,7 @@ void dispatcher(int has_quantum, int quantum, int n){
       {
         //pegar processo pronto se houver algum
         if(queue_size((queue_t*)ready_queue) > 0){
-          process *p = scheduler_fcfs(&ready_queue);
+          process *p = scheduler_rr(&ready_queue);
           running_current = p;
           (*running_current).current_state = RUNNING;
           (*running_current).executed_time = (*running_current).executed_time + 1;
@@ -175,9 +238,19 @@ void dispatcher(int has_quantum, int quantum, int n){
         (*running_current).executed_time = (*running_current).executed_time + 1;
         if(has_quantum) (*running_current).executed_quantum = (*running_current).executed_quantum + 1;
       }
-
       print_body(current_time, n);
     }
+
+    if(has_aging && queue_size((queue_t*)ready_queue) > 0)
+    {
+      process *aux = ready_queue;
+      int count = queue_size((queue_t*)ready_queue);
+      for (int i = 0; i < count; i++) {
+        (*aux).dynamic_priority = (*aux).dynamic_priority + 1;
+        aux = (*aux).next;
+      }
+    }
+
     current_time++;
   }
 }
@@ -186,6 +259,6 @@ int main(int argc, char const *argv[]) {
   int n;
   n = init();
   print_header(n);
-  dispatcher(0, 0, n);
+  dispatcher(1, 2, 1, n);
   return 0;
 }
