@@ -1,10 +1,10 @@
 /**
   Implementar:
-  FCFS Simples [V]
-  Round-Robin [V]
-  FCFS com prioridade sem preempção [V]
-  SJB [V]
-  Round-Robin com prioridade e envelhecimento [V]
+  FCFS Simples [V] 0
+  Round-Robin [V] 1
+  FCFS com prioridade sem preempção [V] 2
+  SJB [V] 3
+  Round-Robin com prioridade e envelhecimento [V] 4
 **/
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +38,37 @@ int current_time = 0;
 int created_at = 0;
 int duration = 0;
 int static_priority = 0;
+int context_swap = 0;
 
+float get_live_time(process* queue){
+  float n = 0;
+  float lt = 0;
+  process* first = queue;
+  process* result = NULL;
+  if(queue != NULL){
+    do{
+        lt = lt + ((float)(*queue).completed_at - (float)(*queue).created_at); 
+        n = n + 1;
+      queue = (*queue).next;
+    }while(queue != first);
+  }
+  return lt/n;
+}
+
+float get_wait_time(process* queue){
+  float n = 0;
+  float wt = 0;
+  process* first = queue;
+  process* result = NULL;
+  if(queue != NULL){
+    do{
+        wt = wt + (((float)(*queue).completed_at - (float)(*queue).created_at) - (float)(*queue).duration); 
+        n = n + 1;
+      queue = (*queue).next;
+    }while(queue != first);
+  }
+  return wt/n;
+}
 
 struct process* get_process(process* queue, int id){
   process* first = queue;
@@ -189,7 +219,7 @@ struct process *scheduler_rr(process **queue){
   return (process *)queue_remove((queue_t**)queue, (queue_t*)result);
 }
 
-void dispatcher(int has_quantum, int quantum, int has_aging, int n){
+void dispatcher(int has_quantum, int quantum, int has_aging, int n, int politic){
   while(current_time < T_MAX)
   {
     if(running_current != NULL){
@@ -226,9 +256,33 @@ void dispatcher(int has_quantum, int quantum, int has_aging, int n){
       {
         //pegar processo pronto se houver algum
         if(queue_size((queue_t*)ready_queue) > 0){
-          process *p = scheduler_rr(&ready_queue);
+          
+          process *p = NULL;
+          
+          if(politic == 0)
+          {
+            p = scheduler_fcfs(&ready_queue);  
+          }
+          else if(politic == 1)
+          {
+             p = scheduler_fcfs(&ready_queue);  
+          }
+          else if(politic == 2)
+          {
+             p = scheduler_fcfs_priority(&ready_queue);  
+          }
+          else if(politic == 3)
+          {
+             p = scheduler_sjf(&ready_queue);  
+          }
+          else if(politic == 4)
+          {
+             p = scheduler_rr(&ready_queue);  
+          }
+          
           running_current = p;
           (*running_current).current_state = RUNNING;
+          context_swap++;
           (*running_current).executed_time = (*running_current).executed_time + 1;
           if(has_quantum) (*running_current).executed_quantum = (*running_current).executed_quantum + 1;
         }
@@ -256,9 +310,19 @@ void dispatcher(int has_quantum, int quantum, int has_aging, int n){
 }
 
 int main(int argc, char const *argv[]) {
-  int n;
+  int n, politc;
   n = init();
+  printf("\n");
   print_header(n);
-  dispatcher(1, 2, 1, n);
+  
+  dispatcher(0, 0, 0, n, 0); //FCFS Simples
+  //dispatcher(1, 2, 0, n, 1); //Round-Robin
+  //dispatcher(0, 0, 0, n, 2); //FCFS com prioridade sem preempção
+  //dispatcher(0, 0, 0, n, 3); //SJB
+  //dispatcher(1, 3, 1, n, 4); //Round-Robin com prioridade e envelhecimento
+  
+  printf("\nContext swap: %d", context_swap);
+  printf("\nAvg lt: %2f", get_live_time((queue_t*)completed_queue));
+  printf("\nAvg wt: %2f", get_wait_time((queue_t*)completed_queue));
   return 0;
 }
